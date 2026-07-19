@@ -7,8 +7,7 @@
 <title>Rollin — a writing surface that rolls</title>
 <style>
   :root{
-    --paper:      #f6f5f1;
-    --paper-lift: #fcfbf8;
+    --paper:      #fcfbf8;
     --ink:        #1f1c17;
     --pen:        #2f4a6b;
     --sel:        rgba(47,74,107,.18);
@@ -24,7 +23,7 @@
   html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }  /* stop iOS boosting band vs. wrapmirror unevenly */
   html,body{ height:100%; margin:0; }
   body{
-    background:radial-gradient(130% 82% at 50% 50%, var(--paper-lift) 0%, var(--paper) 64%);
+    background:var(--paper);
     color:var(--ink); font-family:var(--serif);
     overflow:hidden; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   }
@@ -115,13 +114,15 @@
   .gear:hover, .toggle:hover{ opacity:.72; }
   .panel{
     position:fixed; top:0; right:0; height:100%; width:280px; max-width:82vw; z-index:6;
-    background:var(--paper-lift);
-    box-shadow:-1px 0 0 var(--rule), -22px 0 46px rgba(31,28,23,.07);
+    background:var(--paper);
     transform:translateX(100%); transition:transform .34s cubic-bezier(.22,.61,.36,1);
     padding:60px 26px 28px; overflow-y:auto;
     font-family:var(--mono); color:var(--ink);
   }
-  .panel.open{ transform:none; }
+  .panel.open{
+    transform:none;
+    box-shadow:-1px 0 0 var(--rule), -22px 0 46px rgba(31,28,23,.07);
+  }
   .panel h2{
     font-size:11px; letter-spacing:.28em; text-transform:uppercase; opacity:.5;
     margin:0 0 24px; font-weight:normal;
@@ -162,8 +163,6 @@
     <div class="seam"></div>
     <div class="ghost" id="ghost">start typing</div>
     <div class="col" id="col"></div>
-    <!-- spellcheck="false" disables popup on invisible textarea -->
-    <!-- autocorrect is needed for word suggestions -->
     <textarea class="input" id="input"
       autocomplete="off"
       spellcheck="false"
