@@ -1,4 +1,10 @@
 # Rollin - a writing surface that ~~rules~~ rolls
+<img width="450" height="350" alt="rollin_preview" src="https://github.com/user-attachments/assets/de27e943-bc32-45ad-bcc0-cdec66b96d36" />
+
+## TODO
+- double/triple click
+- ime shows over invisible text area
+- mobile drag select
 
 Below is a knowledge dump for anyone (human or Claude).
 
