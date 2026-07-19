@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Rollin — a writing surface that turns</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='70.7' height='58.6' fill='%237f7f7f'/><path d='M100 100H0V0Z' fill='%23656565'/><circle cx='70.7' cy='29.3' r='29.3' fill='%23aeaeae'/></svg>">
+<title>Rollin — a writing surface that rolls</title>
 <style>
   :root{
     --paper:      #f6f5f1;
@@ -87,9 +88,7 @@
   }
   .xmirror{ white-space:pre; }
   .mark{
-    position:fixed; left:24px; top:22px; z-index:4;
-    font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase;
-    color:var(--ink); opacity:.32; pointer-events:none;
+    position:fixed; left:24px; top:22px; z-index:4; width: 20px;
   }
   .count{
     position:fixed; left:0; right:0; bottom:22px; z-index:4; text-align:center;
@@ -150,7 +149,13 @@
 </style>
 </head>
 <body>
-  <div class="mark">rollin</div>
+  <div class="mark">
+    <svg role="img" viewBox="0 0 100 100">
+      <rect width="70.7" height="58.6" fill="#7f7f7f"/>
+      <path d="M100 100H0V0Z" fill="#656565"/>
+      <circle cx="70.7" cy="29.3" r="29.3" fill="#aeaeae"/>
+    </svg>
+  </div>
   <div class="stage" id="stage">
     <div class="seam"></div>
     <div class="ghost" id="ghost">begin typing</div>
