@@ -18,8 +18,10 @@
     --step: 52px;
     --font: 30px;
     --chrome: 1;
+    --anchor: 40%;   /* resting line, measured from the top. Fallback only — set from JS (TUNE.anchor). */
   }
   *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }  /* stop iOS boosting band vs. wrapmirror unevenly */
   html,body{ height:100%; margin:0; }
   body{
     background:radial-gradient(130% 82% at 50% 50%, var(--paper-lift) 0%, var(--paper) 64%);
@@ -28,7 +30,7 @@
   }
   .stage{
     position:fixed; inset:0;
-    perspective:1400px; perspective-origin:50% 50%;
+    perspective:1400px; perspective-origin:50% var(--anchor);   /* vantage point tracks the anchor, or the drum skews */
     overflow:hidden; touch-action:none; cursor:text;
   }
   .stage::before{
@@ -39,7 +41,7 @@
       rgba(246,245,241,0) 78%, var(--paper) 100%);
   }
   .seam{
-    position:absolute; left:50%; top:50%; z-index:0;
+    position:absolute; left:50%; top:var(--anchor); z-index:0;
     width:min(92vw,46rem); height:var(--step);
     transform:translate(-50%,-50%); pointer-events:none;
     opacity:var(--chrome,1);
@@ -62,7 +64,7 @@
   }
   .band, .wrapmirror{ white-space:pre-wrap; }
   .band{
-    position:absolute; left:0; right:0; top:50%;
+    position:absolute; left:0; right:0; top:var(--anchor);
     transform-origin:50% 50%;
     text-align:left; min-height:var(--step);
     pointer-events:auto; user-select:none; will-change:transform,opacity;
@@ -95,7 +97,7 @@
     font-family:var(--mono); font-size:11px; letter-spacing:.22em; color:var(--ink); opacity:.30; pointer-events:none;
   }
   .ghost{
-    position:absolute; left:50%; top:50%; z-index:0; transform:translate(-50%,-50%);
+    position:absolute; left:50%; top:var(--anchor); z-index:0; transform:translate(-50%,-50%);
     width:min(92vw,46rem); font-size:var(--font); line-height:var(--step);
     color:var(--ink); opacity:.26; pointer-events:none; font-style:italic; transition:opacity .15s ease;
   }
@@ -158,9 +160,14 @@
   </div>
   <div class="stage" id="stage">
     <div class="seam"></div>
-    <div class="ghost" id="ghost">begin typing</div>
+    <div class="ghost" id="ghost">start typing</div>
     <div class="col" id="col"></div>
-    <textarea class="input" id="input" spellcheck="false" autocorrect="off" autocapitalize="sentences"
+    <!-- spellcheck="false" disables popup on invisible textarea -->
+    <!-- autocorrect is needed for word suggestions -->
+    <textarea class="input" id="input"
+      autocomplete="off"
+      spellcheck="false"
+      autocapitalize="sentences"
       aria-label="Writing surface. Arrows move by visible line; drag to select; wheel to look back."></textarea>
   </div>
   <div class="count" id="count"></div>
@@ -213,6 +220,8 @@
     wrapDetect: 0.5,    // fraction of line pitch a vertical jump must exceed to count as a wrap
     fontRatio:  1.72,   // line pitch ÷ font size
     scrolloff:  1,      // lines kept from the edge before unroll scrolls
+    anchor:     0.4,   // resting line's height from the top of the viewport (60% up from the bottom),
+                        // lifted off center so a mobile keyboard doesn't cover the line being written
   };
   const EASE = reduced ? 1 : TUNE.ease;
   const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
@@ -267,10 +276,14 @@
     R    = STEP * settings.size;                 // radius scales with the cylinder-size knob
     document.documentElement.style.setProperty('--step', STEP + 'px');
     document.documentElement.style.setProperty('--font', settings.font + 'px');
+    document.documentElement.style.setProperty('--anchor', (TUNE.anchor * 100) + '%');
     const fs = settings.font + 'px';
     wrap.style.fontSize = fs; wrap.style.lineHeight = STEP + 'px';
     xm.style.fontSize   = fs; xm.style.lineHeight   = STEP + 'px';
   }
+  // the anchor splits the viewport unevenly, so the room a row has differs above vs below it
+  const spaceAbove = () => window.innerHeight * TUNE.anchor;
+  const spaceBelow = () => window.innerHeight * (1 - TUNE.anchor);
 
   // ---- shared primitive: measure text geometry per row ----
   function segment(text){
@@ -282,7 +295,16 @@
     for(let i=0;i<text.length;i++){
       if(text[i] === '\n'){ out.push({start:rowStart, end:i}); rowStart = i+1; curTop = null; continue; }
       range.setStart(node, i); range.setEnd(node, i+1);
-      const top = range.getBoundingClientRect().top;
+      // A range starting at a line boundary is ambiguous, and WebKit resolves it to the end of the
+      // *previous* line: getClientRects() then holds a zero-width rect there plus the character's
+      // real one, and getBoundingClientRect() unions them, reporting the previous line's top. That
+      // seeds curTop a full STEP too high after a hard newline, so char two looks like a wrap.
+      // Take the character's own box; a rect with no width is a position, not a glyph.
+      const rects = range.getClientRects();
+      let rect = null;
+      for(let j=rects.length-1;j>=0;j--){ if(rects[j].width > 0 && rects[j].height > 0){ rect = rects[j]; break; } }
+      if(!rect) continue;                      // whitespace swallowed at a wrap point has no box
+      const top = rect.top;
       if(curTop === null){ curTop = top; }
       else if(top - curTop > STEP * TUNE.wrapDetect){ out.push({start:rowStart, end:i}); rowStart = i; curTop = top; }
     }
@@ -360,7 +382,7 @@
   function draw(){
     let win = WINDOW;
     if(flatTarget === 1 || flatAmt > 0.001){                    // flat fills the viewport around center
-      win = Math.max(WINDOW, Math.ceil(window.innerHeight / (2 * STEP)) + 2);
+      win = Math.max(WINDOW, Math.ceil(Math.max(spaceAbove(), spaceBelow()) / STEP) + 2);   // cover the longer side
     }
     const c0 = Math.round(center);
     const lo = Math.max(0, c0 - win), hi = Math.min(rows.length - 1, c0 + win);
@@ -408,7 +430,7 @@
     const maxRow = Math.max(0, rows.length - 1);
     target = clamp(target, 0, maxRow); center = clamp(center, 0, maxRow);
     if(mode === 'write'){                                       // follow the caret only when it leaves the band
-      const visLines = Math.floor(window.innerHeight / STEP);
+      const visLines = Math.floor(2 * Math.min(spaceAbove(), spaceBelow()) / STEP);   // the caret roams symmetrically, so the shorter side bounds it
       const margin = flatTarget === 1 ? Math.max(1, Math.floor(visLines / 2) - TUNE.scrolloff) : 0;
       if(caretRow - target > margin) target = clamp(caretRow - margin, 0, maxRow);
       else if(target - caretRow > margin) target = clamp(caretRow + margin, 0, maxRow);
@@ -479,6 +501,16 @@
   ta.addEventListener('blur',  () => stage.classList.remove('focused'));
 
   // ---- pointer: mouse drags select, touch drags scroll, tap places caret ----
+  // iOS dismisses the keyboard without blurring, so the textarea stays activeElement and a plain
+  // focus() is a no-op — the keyboard can never be raised again. Force a real focus transition.
+  function focusInput(){
+    if(document.activeElement === ta) ta.blur();
+    ta.focus();
+  }
+  // Synthesized mousedown after a tap moves focus off the (pointer-events:none) textarea — the
+  // same load-bearing preventDefault the mouse path needs, for the compat events touch generates.
+  // Safe to blanket: .topbar and .panel live outside .stage, so no control is affected.
+  stage.addEventListener('mousedown', e => e.preventDefault());
   let drag = null;
   const edgeTop = () => window.innerHeight * TUNE.edgeZone, edgeBottom = () => window.innerHeight * (1 - TUNE.edgeZone);
   stage.addEventListener('pointerdown', e => {
@@ -491,8 +523,10 @@
       selAnchor = hit ? hit.pos : ta.value.length;
       drag = { kind:'mouse', x:e.clientX, y:e.clientY, moved:false, id:e.pointerId };
       ta.focus(); placeCaret(selAnchor, hit ? hit.row : null); refillVisible();
+      // capture only for mouse drag-select; capturing a touch pointer suppresses WebKit's
+      // synthesized click/focus flow, which the tap-to-focus path depends on
+      if(stage.setPointerCapture) try { stage.setPointerCapture(e.pointerId); } catch(_){}
     }
-    if(stage.setPointerCapture) try { stage.setPointerCapture(e.pointerId); } catch(_){}
   });
   stage.addEventListener('pointermove', e => {
     if(!drag || e.pointerId !== drag.id) return;
@@ -518,10 +552,11 @@
       if(!drag.moved){ mode = 'write'; layout(); }   // a click → recenter to the caret
       else { mode = 'select'; refillVisible(); }
     } else if(!drag.moved){                            // a tap → place caret, open the keyboard
+      if(e.cancelable) e.preventDefault();             // suppress the compat mouse events that steal focus
       const hit = offsetAtPoint(e.clientX, e.clientY);
       selAnchor = hit ? hit.pos : ta.value.length;
-      mode = 'write'; ta.focus(); placeCaret(selAnchor, hit ? hit.row : null); layout();
-    } else {                                           // a touch scroll → settle on a line
+      mode = 'write'; focusInput(); placeCaret(selAnchor, hit ? hit.row : null); layout();
+    } else {                                         // a touch scroll → settle on a line
       target = clamp(Math.round(target), 0, Math.max(0, rows.length - 1)); kick();
     }
     drag = null;
